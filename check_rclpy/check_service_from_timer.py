@@ -41,11 +41,11 @@ class ServiceFromTimer(Node):
         )
         # 1秒周期のタイマーコールバックを作成
         self.timer = self.create_timer(
-            1.0, self.timer_callback, callback_group=self.callback_group)
+            0.1, self.timer_callback, callback_group=self.callback_group)
 
         self.get_logger().info('Timer start')
 
-    async def timer_callback(self):
+    def timer_callback(self):
         # Serviceが利用可能かを確認
         if not self.client.wait_for_service(timeout_sec=1.0):
             self.get_logger().error('No service server available')
@@ -57,7 +57,8 @@ class ServiceFromTimer(Node):
         request.b = 2
         future = self.client.call_async(request)
         # futureの完了を待つ（この間にexecutorにより他のコールバックが割り込む）
-        await future
+        self.executor.spin_until_future_complete(future)
+
         self.get_logger().info('Response received: {}'.format(future.result().sum))
 
 

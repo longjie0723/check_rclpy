@@ -49,7 +49,7 @@ class ServiceFromService(Node):
         self.get_logger().info('Service is ready')
 
     # Serviceのコールバック関数
-    async def add_two_ints_proxy_callback(self, request, response):
+    def add_two_ints_proxy_callback(self, request, response):
         # Serviceが利用可能かを確認
         if not self.client.wait_for_service(timeout_sec=1.0):
             self.get_logger().error('No service server available')
@@ -57,7 +57,7 @@ class ServiceFromService(Node):
         # 非同期にServiceを呼び出す
         future = self.client.call_async(request)
         # クライアントに結果を返すためにfutureの完了を待つ（この間にexecutorにより他のコールバックが割り込む）
-        await future
+        self.executor.spin_until_future_complete(future)
         # 結果を返す
         return future.result()
 
@@ -69,9 +69,9 @@ def main(args=None):
     service_from_service = ServiceFromService()
 
     # 実行されるパスが一つしかないので、SingleThreadedExecutorでも正常に動く
-    executor = SingleThreadedExecutor()
+    #executor = SingleThreadedExecutor()
     # MultiThreadedExecutorでも正常に動く
-    # executor = MultiThreadedExecutor()
+    executor = MultiThreadedExecutor()
 
     executor.add_node(add_two_ints_server)
     executor.add_node(service_from_service)

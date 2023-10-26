@@ -47,11 +47,13 @@ class ServiceFromTask(Node):
         for i in range(msec):
             self.rate.sleep()
 
-    async def main_loop(self):
+    def main_loop(self):
         """executorで実行されるメインループ"""
         while rclpy.ok():
             if not self.client.wait_for_service(timeout_sec=1.0):
                 self.get_logger().error('No service server available')
+                # 1秒スリープ
+                self.sleep_ms(100)
                 continue
 
             # 非同期にServiceを呼び出す
@@ -61,11 +63,12 @@ class ServiceFromTask(Node):
             future = self.client.call_async(request)
 
             # futureの完了を待つ（この間にexecutorにより他のコールバックが割り込む）
-            await future
-            self.get_logger().info('Response received: {}'.format(future.result().sum))
+            #await future
+            self.executor.spin_until_future_complete(future)
+            #self.get_logger().info('Response received: {}'.format(future.result().sum))
             
             # 1秒スリープ
-            self.sleep_ms(1000)
+            self.sleep_ms(100)
 
             self.get_logger().info('wake up')
 
@@ -81,7 +84,11 @@ def main(args=None):
     # Rateタイマーと並列してコールバック処理をする必要があるので、SingleThreadedExecutorではmain_loopのrate.sleepでデッドロックする
     # executor = SingleThreadedExecutor()
 
-    executor.add_node(node=add_two_ints_server)
+    # 違うバグのせいで同じプロセスでnodeを追加するとエラーになる？
+    # https://github.com/ros2/rclpy/issues/1009
+    # ros2 run demo_nodes_py add_two_ints_serverとしておけば動作する
+    # executor.add_node(node=add_two_ints_server)
+
     executor.add_node(node=service_from_task)
     executor.create_task(service_from_task.main_loop)
     executor.spin()
